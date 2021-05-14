@@ -1,6 +1,8 @@
 # Duo-PSModule Documentation
 ======================
 
+This is a branch from the original Duo-PSModule writen by mbegan on GitHub. Thank you sir for your original module.
+
 This is a basic powershell wrapper intended to expose the capabilities of the Duo Admin API [Duo Admin API](https://duo.com/support/documentation/adminapi#overview).
 
 --------
@@ -130,12 +132,14 @@ user_id       NoteProperty System.String user_id=DUxxxxxxxxxxxxxxxxx0
 
 ```
 
-The commands implimented are listed below, if you have a specific use case ask away i'll post an example.  If you are handy with powershell feel free to impliment additional functionality and send a PR.
+  If you are handy with powershell feel free to implement additional functionality and send a PR.
 
 #### NOTE in most cases the Create* functions also serve to Modify if the object identifier of an existing object is provided
 
-#### Current Commands
+#### NOTE I have not had time to debug some of these. They will report an error if you do not state a -dorg parameter. 
 
+#### Current Commands
+- duoGetUnixTS
 - duoAssocUserToGroup
 - duoAssocUserToPhone
 - duoAssocUserToToken
@@ -153,14 +157,18 @@ The commands implimented are listed below, if you have a specific use case ask a
 - duoDeleteUser
 - duoEnrollUser
 - duoGetAdmin
-- duoGetGroup
+- duoGetGroup - V2 support
 - duoGetInfo
 - duoGetIntegration
 - duoGetLog
+- duoGetAuthenticationLogv2 (Currently not working correctly)
 - duoGetPhone
 - duoGetToken
 - duoGetUser
 - duoGetUserBypass
+- duoCreateActivationCode
 - duoSendSMSCodes
+- duoSendActivationCode
+- duoSendInstallationUrl
 - duoSoftTotpClient
 - duoSyncUser

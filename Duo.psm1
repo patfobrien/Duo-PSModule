@@ -475,7 +475,7 @@ function _duoMakeCall()
         
         try
         {
-            $psobj = ConvertFrom-Json -InputObject $txt
+            $psobj = ConvertFrom-Json -InputObject $txt -ErrorAction SilentlyContinue
         }
         catch
         {
@@ -649,9 +649,6 @@ function duoDeleteUser()
             [ValidateLength(20,20)]
             [String]$user_id
     )
-
-    [string[]]$param = "username"
-    $parameters = New-Object System.Collections.Hashtable
 
     [string]$method = "DELETE"
     [string]$path = "/admin/v1/users/" + $user_id
@@ -1262,7 +1259,7 @@ function duoCreatePhone()
             [String]$dOrg=$DuoDefaultOrg,
         [parameter(Mandatory=$false)]
             [Validatescript({_numberValidator -number $_})]
-            [string]$number,
+            [int64]$number,
         [parameter(Mandatory=$false)]
             [ValidateLength(1,255)]
             [string]$name,
@@ -1369,7 +1366,7 @@ function duoCreateActivationCode()
             [String]$phone_id,
         [parameter(Mandatory=$false)]
             [ValidateRange(1,604800)]
-            [int]$valid_secs=3600,
+            [int]$valid_secs=86400,
         [parameter(Mandatory=$false)]
             [switch]$install
     )
@@ -1423,6 +1420,104 @@ function duoSendSMSCodes()
     try
     {
         $request = _duoBuildCall -method $method -dOrg $dOrg -path $path
+    }
+    catch
+    {
+        throw $_
+    }
+
+    return $request
+}
+
+function duoSendActivationCode()
+{
+    param
+    (
+        [parameter(Mandatory=$false)]
+            [ValidateLength(1,100)]
+            [String]$dOrg=$DuoDefaultOrg,
+        [parameter(Mandatory=$true)]
+            [ValidateLength(20,20)]
+            [alias('pid','phoneid')]
+            [String]$phone_id,
+        [parameter(Mandatory=$false)]
+            [ValidateRange(1,604800)]
+            [int]$valid_secs=86400,
+        [parameter(Mandatory=$false)]
+            [switch]$install,
+        [parameter(Mandatory=$false)]
+            [String]$installation_msg,
+        [parameter(Mandatory=$false)]
+            [String]$activation_msg
+    )
+    [string[]]$param = "valid_secs","install","installation_msg","activation_msg"
+
+    $parameters = New-Object System.Collections.Hashtable
+
+    if ($installation_msg -ne ""){$installation_msg = "$installation_msg <insturl>"}
+    if ($activation_msg -ne ""){$activation_msg = "$activation_msg <acturl>"}
+    foreach ($p in $param)
+    {
+        if (Get-Variable -Name $p -ErrorAction SilentlyContinue) 
+        {
+            if ((Get-Variable -Name $p -ValueOnly) -ne "")
+            {
+                $parameters.Add($p,(Get-Variable -Name $p -ValueOnly))
+            }
+        }
+    }
+
+    [string]$method = "POST"
+    [string]$path = "/admin/v1/phones/" + $phone_id + "/send_sms_activation"
+
+    try
+    {
+        $request = _duoBuildCall -method $method -dOrg $dOrg -path $path -parameters $parameters
+    }
+    catch
+    {
+        throw $_
+    }
+
+    return $request
+}
+
+function duoSendInstallationUrl()
+{
+    param
+    (
+        [parameter(Mandatory=$false)]
+            [ValidateLength(1,100)]
+            [String]$dOrg=$DuoDefaultOrg,
+        [parameter(Mandatory=$true)]
+            [ValidateLength(20,20)]
+            [alias('pid','phoneid')]
+            [String]$phone_id,
+        [parameter(Mandatory=$false)]
+            [String]$installation_msg
+    )
+    [string[]]$param = "installation_msg"
+    
+    $parameters = New-Object System.Collections.Hashtable
+
+    if ($installation_msg -ne ""){$installation_msg = "$installation_msg <insturl>"}
+    foreach ($p in $param)
+    {
+        if (Get-Variable -Name $p -ErrorAction SilentlyContinue) 
+        {
+            if ((Get-Variable -Name $p -ValueOnly) -ne "")
+            {
+                $parameters.Add($p,(Get-Variable -Name $p -ValueOnly))
+            }
+        }
+    }
+
+    [string]$method = "POST"
+    [string]$path = "/admin/v1/phones/" + $phone_id + "/send_sms_installation"
+
+    try
+    {
+        $request = _duoBuildCall -method $method -dOrg $dOrg -path $path -parameters $parameters
     }
     catch
     {
@@ -1632,29 +1727,30 @@ function duoDeleteToken()
 ###################Groups##################
 
 function duoGetGroup()
-{
+{    
     <# 
-     .Synopsis
-      Used to get all Groups from a given Duo Org
+    .Synopsis
+     Used to get all Groups from a given Duo Org
 
-     .Description
-      Returns a collection of user Objects See: https://duo.com/docs/adminapi#retrieve-groups
+    .Description
+     Returns a collection of user Objects See: https://duo.com/docs/adminapi#retrieve-groups
 
-     .Parameter limit
-      optional integer representing a page size for results
-      
-     .Parameter dOrg
-      string representing configured Duo Org
+    .Parameter limit
+     optional integer representing a page size for results
+     
+    .Parameter dOrg
+     string representing configured Duo Org
 
-     .Example
-      # Get all users from "prod" duo Org
-      duoGetToken -dOrg prod
+    .Example
+     # Get all users from "prod" duo Org
+     duoGetToken -dOrg prod
 
-     .Example
-      # Get specific token from default duo Org
-      duoGetToken -group_id DG5MF92W6CBRPZKJ18CS
+    .Example
+     # Get specific token from default duo Org
+     duoGetToken -group_id DG5MF92W6CBRPZKJ18CS
 
-    #>
+   #>
+
     param
     (
         [parameter(Mandatory=$false)]
@@ -1665,7 +1761,7 @@ function duoGetGroup()
             [alias('gid','groupid')]
             [String]$group_id,
         [parameter(Mandatory=$false)]
-            [ValidateRange(1,100)]
+            [ValidateRange(1,500)]
             [alias('pagesize')]
             [int]$limit
     )
@@ -1675,7 +1771,7 @@ function duoGetGroup()
     $parameters = New-Object System.Collections.Hashtable
 
     [string]$method = "GET"
-    [string]$path = "/admin/v1/groups"
+    [string]$path = "/admin/v2/groups"
     if ($group_id)
     {
         $path += "/" + $group_id
@@ -2087,6 +2183,251 @@ function duoGetLog()
     catch
     {
         #Write-Warning $_.TargetObject
+        throw $_
+    }
+    return $request
+}
+
+function duoGetAuthenticationLogv2() # Currently not working
+{
+    <# 
+     .Synopsis
+      Used to get logs of a given type
+
+     .Description
+      Returns a collection of log entries See: https://duo.com/docs/adminapi#logs
+
+     .Parameter dOrg
+      string representing configured Duo Org
+
+    .Parameter limit
+        Number of results to limit to
+    .Parameter next_offset 
+        Used to grab the next set of results from a previous response
+    .Parameter sort
+        Sort order to be applied
+        The order in which to return records. One of:
+            Value	Description
+            ts:asc	Return logs in chronological order.
+            ts:desc	Return logs in reverse chronological order.
+    .Parameter mintime (required) 
+        Unix timestamp in ms; fetch records >= mintime
+    .Parameter maxtime (required) 
+        Unix timestamp in ms; fetch records <= maxtime
+    .Parameter applications
+        List of application ids to filter on
+        An integration's integration_key or the key value for an application returned in the authentication log output.
+        Default: Return logs for all applications.
+    .Parameter users
+        List of user ids to filter on
+        A user's user_id or the key value for a user returned in the authentication log output.
+        Default: Return logs for all users.
+    .Parameter event_types
+        Optional	Yes. Multiple values create an OR query.	
+        The type of authentication event. One of:
+            Value	Description
+            authentication	Return events for authentication attempts.
+            enrollment	Return events related to a user completing Duo's inline enrollment.
+    .Parameter factors
+         The factor or method used for an authentication attempt. One of:
+
+            Value	        Description
+            duo_push	    Return events where the authentication factor was “Duo Push“.
+            phone_call	    Return events where the authentication factor was a phone call.
+            u2f_token	    Return events where the authentication factor was a U2F token.
+            hardware_token	Return events where the authentication factor was a hardware token passcode.
+            bypass_code	    Return events where the authentication factor was a bypass code.
+            sms_passcode    Return events where the authentication factor was an SMS passcode.
+        duo_mobile_passcode	Return events where the authentication factor was a passcode generated by “Duo Mobile“.
+            yubikey_code    Return events where the authentication factor was a Yubikey OTP token passcode.
+            passcode    	Return events where the authentication factor was a passcode not identified as another known type.
+        digipass_go_7_token	Return events where the authentication factor was a Digipass GO 7 token purchased from Duo.
+        WebAuthn Credential	Return events where the authentication factor was a WebAuthn authenticator, like a FIDO2 security key or Touch ID.
+            not_available	Return events where the authentication factor is not available.
+            sms_refresh	    Return events where the user requested a refresh batch of SMS passcodes.
+        remembered_device	Return events where the authentication factor was the remembered device token from a previous authentication success.
+            trusted_network	Return events where the effective authentication factor was an authorized network.
+
+    .Parameter groups
+        List of group ids to filter on
+        A group's group_id or the key value for a group returned in the authentication log output.
+        Default: Return logs for all groups.
+    .Parameter phone_numbers
+        A phone's number as returned in the authentication log output. If the phone has 
+        been given a text name then both are returned in the format name (number).
+    .Parameter reason
+    Multiple values create an OR query.	
+        The reason associated with an authentication attempt. One of:
+
+        Value	                 Description
+        user_marked_fraud	    Return events where authentication was denied because the end user explicitly marked “fraudulent“.
+        deny_unenrolled_user	Return events where authentication was denied because of the following policy: “deny not enrolled users“.
+        error	                Return events where authentication was denied because of an error.
+        locked_out	            Return events generated by users that are locked out.
+        user_disabled	        Return events where authentication was denied because the user was disabled.
+        user_cancelled          Return events where authentication was denied because the end user cancelled the request.
+        invalid_passcode        Return events where authentication was denied because the passcode was invalid.
+        no_response	            Return events where authentication was denied because there was no response from the user.
+        no_keys_pressed	        Return events where authentication was denied because no keys were pressed to accept the auth.
+        call_timed_out	        Return events where authentication was denied because the call was not answered or call authentication timed out for an indeterminate reason.
+        location_restricted	    Return events where authentication was denied because the end user's location was restricted.
+        factor_restricted	    Return events where authentication was denied because the authentication method used was not allowed.
+        platform_restricted	    Return events where authentication was denied because the access platform was not allowed.
+        version_restricted	    Return events where authentication was denied because the software version was not allowed.
+        rooted_device	        Return events where authentication was denied because the approval device was rooted.
+        no_screen_lock	        Return events where authentication was denied because the approval device does not have screen lock enabled.
+        touch_id_disabled	    Return events where authentication was denied because the approval device's biometrics (fingerprint, Face ID or Touch ID) is disabled.
+        no_disk_encryption	    Return events where authentication was denied because the approval device did not have disk encryption enabled.
+        anonymous_ip	        Return events where authentication was denied because the authentication request came from an anonymous IP address.
+        out_of_date	            Return events where authentication was denied because the software was out of date.
+        denied_by_policy	    Return events where authentication was denied because of a policy.
+        software_restricted	    Return events where authentication was denied because of software restriction.
+    no_duo_certificate_present	Return events where authentication was denied because there was no Duo certificate present.
+    user_provided_invalid_certificate	Return events where authentication was denied because an invalid management certificate was provided.
+    could_not_determine_if_endpoint_was_trusted	Return events where authentication was denied because it could not be determined if the endpoint was trusted.
+    invalid_management_certificate_collection_state	Return events where authentication was denied because of an invalid management certificate collection state.
+    no_referring_hostname_provided	Return events where authentication was denied because no referring hostname was provided.
+    invalid_referring_hostname_provided	Return events where authentication was denied because an invalid referring hostname was provided.
+        no_web_referer_match	Return events where authentication was denied because an invalid referring hostname did not match an application's hostnames list.
+    endpoint_failed_google_verification	Return events where authentication was denied because the endpoint failed Google verification.
+        endpoint_is_not_trusted	Return events where authentication was denied because the endpoint was not trusted.
+        invalid_device	        Return events where authentication was denied because the device was invalid.
+        anomalous_push	        Return events where authentication was denied because of an anomalous push.
+    endpoint_is_not_in_management_system	Return events where authentication was denied because the endpoint is not in a management system.
+    no_activated_duo_mobile_account	Return events where authentication was denied because the end user does not have an activated Duo Mobile app account.
+        allow_unenrolled_user	Return events where authentication was successful because of the following policy: “allow not enrolled users“.
+        bypass_user         	Return events where authentication was successful because a bypass code was used.
+        trusted_network	        Return events where authentication was successful because the end user was on a trusted network.
+        remembered_device	    Return events where authentication was successful because the end user was on a remembered device.
+        trusted_location	    Return events where authentication was successful because the end user was in a trusted location.
+        user_approved	        events where authentication was successful because the end user approved the authentication request.
+        valid_passcode	        Return events where authentication was successful because the end user used a valid passcode.
+        allowed_by_policy	    Return events where authentication was successful because of a policy.
+    allow_unenrolled_user_on_trusted_network	Return events where authentication was successful because the unenrolled user's access device was on an authorized network.
+    user_not_in_permitted_group	Return events where authentication was denied because the user did not belong to one of the Permitted Groups specified in the application's settings.
+    
+    .Parameter results
+        List of results to filter to filter on
+        reasons - List of reasons to filter to filter on
+        factors - List of factors to filter on
+        event_types - List of event_types to filter on
+
+
+    .Parameter registration_id 
+        A FIDO U2F token's registration_id as returned in the authentication log output.
+        Default: Return logs for all U2F tokens used.
+    
+    .Parameter token_id
+        A hardware OTP token's token_id as returned in the authentication log output.
+        Default: Return logs for all OTP tokens used.
+    
+    .Parameter webauthnkey
+        A WebAuthn security key's webauthnkey as returned in the authentication log output.
+        Default: Return logs for security keys used.
+
+     .Example
+      # Get all authentication logs from "prod" duo Org
+      duoGetAuthenticationLogv2 -dOrg prod 
+
+     .Example
+      # Get all authentication logs recieved on or after a give unixtimestamp
+      duoGetAuthenticationLogv2 -dOrg etst -mintime 1346172697 -maxtime 1618323586
+    #>
+
+    param
+    (
+        [parameter(Mandatory=$false)]
+            [ValidateLength(1,100)]
+            [String]$dOrg=$DuoDefaultOrg,
+        [parameter(Mandatory=$false)]
+            [ValidateRange(1,1000)]
+            [int]$limit,
+        [parameter(Mandatory=$false)]
+            [String]$next_offset,
+        [parameter(Mandatory=$false)]
+            [ValidateSet('ts:asc','ts:desc')]
+            [String]$sort,
+        [parameter(Mandatory=$true)]
+            [String]$mintime,
+        [parameter(Mandatory=$true)]
+           # [Validatescript($mintime > $_)]
+            [String]$maxtime #,
+       <# [parameter(Mandatory=$false)]
+            [String]$applications,
+        [parameter(Mandatory=$false)]
+            [String]$users,
+        [parameter(Mandatory=$false)]
+            [ValidateSet('authentication','enrollment')]
+            [String]$event_types,
+        [parameter(Mandatory=$false)]
+            [ValidateSet('duo_push','phone_call','u2f_token','hardware_token',`
+            'bypass_code','sms_passcode','duo_mobile_passcode','yubikey_code'`
+            ,'passcode','digipass_go_7_token','WebAuthn_Credential',`
+            'not_available','sms_refresh','remembered_device','trusted_network')]
+            [String]$factors,
+        [parameter(Mandatory=$false)]
+            [String]$groups,
+        [parameter(Mandatory=$false)]
+            [Validatescript({_numberValidator -number $_})]
+            [int]$phone_numbers,
+        [parameter(Mandatory=$false)]
+            [ValidateSet('user_marked_fraud','deny_unenrolled_user','error'`
+            ,'locked_out','user_disabled','user_cancelled','invalid_passcode'`
+            ,'no_response','no_keys_pressed','call_timed_out','location_restricted'`
+            ,'factor_restricted','platform_restricted','version_restricted'`
+            ,'rooted_device','no_screen_lock','touch_id_disabled','no_disk_encryption'`
+            ,'anonymous_ip','out_of_date','denied_by_policy','software_restricted'`
+            ,'no_duo_certificate_present','user_provided_invalid_certificate'`
+            ,'could_not_determine_if_endpoint_was_trusted','invalid_management_certificate_collection_state'`
+            ,'no_referring_hostname_provided','invalid_referring_hostname_provided'`
+            ,'no_web_referer_match','endpoint_failed_google_verification'`
+            ,'endpoint_is_not_trusted','invalid_device','anomalous_push'`
+            ,'endpoint_is_not_in_management_system','no_activated_duo_mobile_account'`
+            ,'allow_unenrolled_user','bypass_user','trusted_network'`
+            ,'remembered_device','trusted_location','user_approved','valid_passcode'`
+            ,'allowed_by_policy','allow_unenrolled_user_on_trusted_network'`
+            ,'user_not_in_permitted_group')]
+            [String]$reasons,
+        [parameter(Mandatory=$false)]
+            [ValidateSet('success','denied','fraud')]
+            [String]$results,
+        [parameter(Mandatory=$false)]
+            [String]$registration_id,
+        [parameter(Mandatory=$false)]
+            [String]$token_id,
+        [parameter(Mandatory=$false)]
+            [String]$webauthnkey#>
+    )
+
+    [string]$method = "GET"
+    [string]$path = "/admin/v2/logs/authentication"
+
+
+    [string[]]$param = 'limit','next_offset','sort','mintime'`
+        ,'maxtime'<#,'applications','event_types','factors','groups'`
+        ,'Listofgroupidstofilteron','phone_numbers','reason','results'`
+        ,'registration_id','token_id','webauthnkey'#>
+
+    $parameters = New-Object System.Collections.Hashtable
+
+    foreach ($p in $param)
+    {
+        if (Get-Variable -Name $p -ErrorAction SilentlyContinue) 
+        {
+            if ((Get-Variable -Name $p -ValueOnly) -ne "")
+            {
+                $parameters.Add($p,(Get-Variable -Name $p -ValueOnly))
+            }
+        }
+    }
+
+    try
+    {
+        $request = _duoBuildCall -method $method -path $path -dOrg $dOrg -parameters $parameters
+    }
+    catch
+    {
+    #Write-Warning $_.TargetObject
         throw $_
     }
     return $request
