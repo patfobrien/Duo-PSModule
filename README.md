@@ -70,7 +70,7 @@ Write-Host $env:PSModulePath
 
 ```
 cd %userprofile%\Documents\WindowsPowerShell\Modules
-git clone https://github.com/mbegan/Duo-PSModule.git Duo
+git clone https://github.com/patfobrien/Duo-PSModule.git Duo
 cd Duo
 notepad Duo_org.ps1
 ```
